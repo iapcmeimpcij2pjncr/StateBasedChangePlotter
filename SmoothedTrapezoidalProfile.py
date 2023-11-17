@@ -1,6 +1,8 @@
+from Plotter import StateBase
 from TrapezoidalProfile import TrapezoidalProfile, sign
 
-class SmoothedTrapezoidalProfile(TrapezoidalProfile):
+
+class SmoothedTrapezoidalProfile(StateBase):
     """
     This class is a smoothed trapezoidal profile. It is smooth, and will not have a jerk at the end of the profile.
     Basically acts like a Slew Rate Limiter, but with curved edges
@@ -10,7 +12,9 @@ class SmoothedTrapezoidalProfile(TrapezoidalProfile):
         :param max_speed: The speed the state can change at
         :param max_acceleration: How fast the speed accelerates to the max speed
         """
-        super().__init__(max_speed)
+        self.max_speed = max_speed
+        self.current_value = 0
+        self.direction = 0
         self.max_acceleration = max_acceleration
         self.acceleration_smoother = TrapezoidalProfile(max_acceleration) # gives the slope of the function
 
@@ -20,7 +24,7 @@ class SmoothedTrapezoidalProfile(TrapezoidalProfile):
         self.critical_distance = (self.max_acceleration / 2) * (self.critical_duration ** 2)
 
     # if you don't understand derivitives, integrals, and power rule, this might be a bit weird
-    def calculate_critical_distance(self) -> None:
+    def calculate_critical_distance(self) -> float:
         """
         Calculates the distance needed to go from the current speed to 0 acceleration
         """
@@ -33,8 +37,6 @@ class SmoothedTrapezoidalProfile(TrapezoidalProfile):
         # update direction
         self.direction = sign(target - self.current_value)
 
-        # update acceleration
-
         # handles accelerating up: checks that it is not within the "critical distance" of the target
         if abs(target - self.current_value) > self.calculate_critical_distance():
             self.current_value += self.acceleration_smoother.update(time_delta, self.direction * self.max_acceleration) * time_delta
@@ -44,8 +46,20 @@ class SmoothedTrapezoidalProfile(TrapezoidalProfile):
             self.current_value = target
             self.acceleration_smoother.set_state(0)
             self.direction = 0
+
         # handles deaccelerating when in critical distance
         else:
             self.current_value += self.acceleration_smoother.update(time_delta, 0) * time_delta
 
         return self.current_value
+
+    def get_state(self) -> float:
+        return self.current_value
+
+    def set_state(self, value: float) -> None:
+        self.current_value = 0
+        self.direction = 0
+        self.acceleration_smoother.set_state(0)
+
+    def is_at_target(self) -> bool:
+        return self.acceleration_smoother.get_state() == 0

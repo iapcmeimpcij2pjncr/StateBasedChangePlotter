@@ -71,6 +71,7 @@ class Plotter:
             while not self.state.is_at_target() and i < 10000: # prevent infinite loop
                 results.append(self.state.update(time_delta, end))
                 i += 1
+            print(i)
 
         else:
             cycles = int(duration / time_delta)
